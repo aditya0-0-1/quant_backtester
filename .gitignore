@@ -1,0 +1,32 @@
+env/
+data/
+*.csv
+.ipynb_checkpoints/
+
+
+
+
+
+# The Analogy: The Club Bouncer
+# When you use Git, you are essentially hiring a photographer to take "snapshots" of your project so you can upload them to GitHub.
+
+# But you do not want everything in your room photographed. Some things are too messy, too big, or just private system files.
+
+# The .gitignore file is your Bouncer. It stands at the door with a VIP list. When Git tries to take a snapshot of your folder, the bouncer looks at this list and says, "Nope, you are not allowed to photograph these items."
+
+
+
+
+# env/: This blocks Git from looking at your virtual environment folder. Remember all those tools we installed yesterday (Pandas, NumPy, yfinance)? They are heavy. If you upload them, it will take forever and clutter your GitHub. Anyone who downloads your code can just install the tools themselves.
+
+# data/: This blocks your massive historical_prices.csv dataset. Code goes on GitHub; databases do not. If you try to push a gigabyte of stock data to GitHub, it will literally block your account.
+
+# *.csv: The * is a wildcard (like a joker card). It means "literally anything." So this line tells the bouncer: "If you see ANY file that ends in .csv, block it." It is a safety net just in case you accidentally drop a CSV outside your data folder.
+
+# .ipynb_checkpoints/: Whenever you use a Jupyter Notebook (like your research.ipynb), it secretly creates hidden backup folders in the background. We don't want those messy hidden files showing up on your professional resume portfolio.
+
+
+
+# .ipynb_checkpoints/:
+# this allow .ipynb files  to pass but   restrict .ipynb checkpoints save by us of that file right(these checkpoints are hidden)
+# just like the .gitignore file was invisible earlier, the .ipynb_checkpoints/ folder is also completely hidden on your Mac.
