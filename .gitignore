@@ -4,6 +4,8 @@ data/
 .ipynb_checkpoints/
 
 
+*.db
+
 
 
 
