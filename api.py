@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel,Field;
 import sqlite3
 import pandas as pd
 import os
@@ -45,8 +45,8 @@ prepared_data = {
 # 4. DEFINE THE HTTP PAYLOAD (What the user sends us)
 class BacktestRequest(BaseModel):
     ticker: str
-    fast_window: int = 10
-    slow_window: int = 50
+    fast_window: int = Field(default=10, gt=0)
+    slow_window: int = Field(default=50, gt=0)
 
 # 5. THE API ENDPOINT (The Web Bridge)
 @app.post("/run-backtest/")
