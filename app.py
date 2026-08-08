@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify,g
 import sqlite3
 import pandas as pd
 import os
@@ -8,20 +8,36 @@ from engine import BacktestEngine
 # 2
 app = Flask(__name__)
 
-# 3
-print("🚀 Flask Server starting... Loading RAM.")
-master_conn = sqlite3.connect("trading_ledger.db", check_same_thread=False)
+# ---------------------------------------------------------
+# 3. DAY 10: SECURE DATABASE MANAGEMENT (Application Context)
+# ---------------------------------------------------------
 
-master_conn.cursor().execute("""
-    CREATE TABLE IF NOT EXISTS trade_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        trade_date TEXT,
-        ticker TEXT,
-        action TEXT,
-        price REAL
-    )
-""")
-master_conn.commit()
+def get_db():
+    """Opens a new database connection if there is none yet for the current request."""
+    if 'db' not in g:
+        print("🗄️ Opening secure SQLite connection for this request...")
+        g.db = sqlite3.connect("trading_ledger.db")
+        
+        g.db.cursor().execute("""
+            CREATE TABLE IF NOT EXISTS trade_history (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                trade_date TEXT,
+                ticker TEXT,
+                action TEXT,
+                price REAL
+            )
+        """)
+        g.db.commit()
+    
+    return g.db
+
+@app.teardown_appcontext
+def close_db(error):
+    """Closes the database automatically when the request is done."""
+    db = g.pop('db', None)
+    if db is not None:
+        print("🔒 Closing SQLite connection.")
+        db.close()
 
 # LoadING Data into RAM
 filepath = 'data/historical_prices.csv'
@@ -77,8 +93,8 @@ def trigger_backtest():
     bot = BacktestEngine(
         ticker_symbol=ticker,
         dataframe=prepared_data[ticker],
-        db_connection=master_conn
-    )
+        db_connection=get_db()  # <-- Flask hands the engine the secure connection
+    )                                      
 
     bot.generate_signals(parsed_data['fast'], parsed_data['slow'])
     bot.run_backtest()
