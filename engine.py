@@ -12,15 +12,17 @@ import os
 # ==========================================    
 
 # 1. THE BOUNCER: Global Mutex Lock for the Database
-db_lock = threading.Lock()
 
 class BacktestEngine:
-    def __init__(self, ticker_symbol, dataframe, db_connection):
+
+
+    def __init__(self, ticker_symbol, dataframe, db_connection,db_lock):#add db_lock on d11
         """1. DAY 6 INIT: Bypasses OS limits and uses Dependency Injection"""
         self.ticker = ticker_symbol
         self.df = dataframe 
         self.conn = db_connection
         self.cursor = self.conn.cursor()
+        self.lock=db_lock   #added this on d11
 
     def generate_signals(self, fast_window=10, slow_window=50):
         """2. The Logic Module (Math in RAM - Unchanged)"""
@@ -44,7 +46,7 @@ class BacktestEngine:
         trades_saved = 0
         
         # The OS Lab Wait() / Signal() command is automated by 'with'
-        with db_lock:
+        with self.lock:#added on day11 previously had with db_lock
             try:
                 # 💥 CRITICAL SECTION
                 for date, row in trade_days.iterrows():
@@ -54,7 +56,6 @@ class BacktestEngine:
                         action = "SELL"
                     else:
                         continue 
-                        
                     insert_query = "INSERT INTO trade_history (trade_date, ticker, action, price) VALUES (?, ?, ?, ?)"
                     self.cursor.execute(insert_query, (str(date.date()), self.ticker, action, row['Close']))
                     trades_saved += 1
