@@ -5,35 +5,21 @@ import time
 import os
 
 
-
-
-# NEW: a custom exception class just for this engine.
-# Why: right now, if pandas throws an error, or sqlite throws an error, they all
-# look identical to whoever's calling this code — just "some Exception."
-# By wrapping engine failures in our OWN exception type, calling code (app.py)
-# can tell "this failed because of MY backtest logic" apart from
-# "this failed because of something totally unrelated in Flask itself."
 class BacktestError(Exception):
     """Raised when any step of the backtest pipeline fails."""
     pass
 
 
 class BacktestEngine:
-    def __init__(self, ticker_symbol, dataframe, db_connection,db_lock):
+    def __init__(self, ticker_symbol, dataframe, db_connection, db_lock):
         self.ticker = ticker_symbol
         self.df = dataframe
         self.conn = db_connection
         self.cursor = self.conn.cursor()
-        self.lock=db_lock
+        self.lock = db_lock
 
     def generate_signals(self, fast_window=10, slow_window=50):
         """Calculates moving averages and buy/sell signals."""
-        # NEW: wrapped in try/except.
-        # Why: this is pure pandas math. If someone passes a fast_window bigger
-        # than the number of rows in the dataframe, or the dataframe is empty,
-        # pandas won't always crash loudly — sometimes it just produces NaN columns
-        # silently, and the real crash happens LATER in a confusing place.
-        # Catching it here means the error message points at the actual cause.
         try:
             self.df['SMA_Fast'] = self.df['Close'].rolling(window=fast_window).mean()
             self.df['SMA_Slow'] = self.df['Close'].rolling(window=slow_window).mean()
@@ -41,11 +27,6 @@ class BacktestEngine:
             self.df.loc[self.df['SMA_Fast'] > self.df['SMA_Slow'], 'Signal'] = 1
             self.df.loc[self.df['SMA_Fast'] <= self.df['SMA_Slow'], 'Signal'] = -1
         except Exception as e:
-            # NEW: "raise ... from e" instead of just "raise BacktestError(...)"
-            # Why: "from e" keeps the ORIGINAL error attached as context.
-            # If you print the traceback, you'll see both: your clean message,
-            # AND the real underlying pandas error underneath it. You don't lose
-            # the original clue while still giving the caller a clean message.
             raise BacktestError(f"generate_signals failed for {self.ticker}: {e}") from e
 
     def run_backtest(self):
@@ -79,21 +60,21 @@ class BacktestEngine:
                     trades_saved += 1
 
                 self.conn.commit()
-                print(f"✅ VAULT LOCKED: {trades_saved} trades saved for {self.ticker}.")
+                print(f"VAULT LOCKED: {trades_saved} trades saved for {self.ticker}.")
 
             except Exception as e:
                 self.conn.rollback()
-                # CHANGED: this used to just print() the error and swallow it —
-                # the function would return normally like nothing went wrong.
-                # Why that was a bug: the caller (app.py) had NO WAY of knowing
-                # the database write actually failed. It would happily report
-                # "success" back to the user even though zero trades got saved.
-                # Now we re-raise as BacktestError so the failure actually
-                # propagates up and app.py is FORCED to handle it.
                 raise BacktestError(f"log_trades_safely failed for {self.ticker}: {e}") from e
 
-    def run_full_pipeline(self):
+    # FIX: now accepts fast_window/slow_window and forwards them to
+    # generate_signals(). Previously this always called generate_signals()
+    # with zero args, so every request silently ran with the hardcoded
+    # defaults (10, 50) no matter what the client sent — a user could ask
+    # for a 20/100 crossover, get a 202 "processing" response, and receive
+    # numbers computed with 10/50 instead. Silent wrong answers are worse
+    # than crashes; this is the fix that matters most in this file.
+    def run_full_pipeline(self, fast_window=10, slow_window=50):
         """Runs the full sequence: signals -> backtest -> db write."""
-        self.generate_signals()
+        self.generate_signals(fast_window, slow_window)
         self.run_backtest()
         self.log_trades_safely()

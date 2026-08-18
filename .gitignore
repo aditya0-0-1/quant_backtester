@@ -31,4 +31,4 @@ data/
 
 # .ipynb_checkpoints/:
 # this allow .ipynb files  to pass but   restrict .ipynb checkpoints save by us of that file right(these checkpoints are hidden)
-# just like the .gitignore file was invisible earlier, the .ipynb_checkpoints/ folder is also completely hidden on your Mac.
+# just like the .gitignore file was invisible earlier, the .ipynb_checkpoints/ folder is also completely hidden on your Mac.env/

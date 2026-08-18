@@ -3,9 +3,7 @@ from app import validate_payload
 
 
 class TestValidatePayload:
-    """Pure unit tests for validate_payload() — no Flask, no DB, no threads.
-    Just: given this dict, what does the function return?
-    """
+    """Pure unit tests for validate_payload() — no Flask, no DB, no threads."""
 
     # ---------- valid input ----------
 
@@ -25,7 +23,6 @@ class TestValidatePayload:
         assert result["slow"] == 50
 
     # ---------- missing ticker ----------
-
 
     def test_missing_ticker_is_rejected(self):
         payload = {"fast_window": 10, "slow_window": 50}
@@ -47,7 +44,9 @@ class TestValidatePayload:
         is_valid, message = validate_payload(payload)
 
         assert is_valid is False
-        assert message == "Ticker GOOGL not found in database."
+        # CHANGED: message updated to reflect reality — this is a fixed
+        # in-memory dict lookup, not a database query.
+        assert message == "Ticker GOOGL not supported."
 
     # ---------- fast >= slow ----------
 
@@ -93,16 +92,34 @@ class TestValidatePayload:
         assert is_valid is False
         assert message == "Windows must be positive integers."
 
-    # ---------- a real gotcha worth knowing about ----------
+    # ---------- NEW: upper bound on window size ----------
+
+    @pytest.mark.parametrize("fast,slow", [
+        (501, 600),
+        (10, 501),
+        (600, 900),
+    ])
+    def test_oversized_windows_are_rejected(self, fast, slow):
+        payload = {"ticker": "AAPL", "fast_window": fast, "slow_window": slow}
+        is_valid, message = validate_payload(payload)
+
+        assert is_valid is False
+        assert message == "Windows must not exceed 500."
+
+    def test_window_exactly_at_max_is_accepted(self):
+        payload = {"ticker": "AAPL", "fast_window": 400, "slow_window": 500}
+        is_valid, result = validate_payload(payload)
+
+        assert is_valid is True
+        assert result["slow"] == 500
+
+    # ---------- boolean gotcha ----------
 
     def test_boolean_window_is_rejected(self):
         """
-        In Python, bool is a subclass of int — isinstance(True, int) is True,
-        and True == 1. validate_payload now uses `type(x) is int` instead of
-        isinstance(), specifically so a boolean does NOT sneak through as a
-        valid window value. This test locks that fix in place: if someone
-        later "simplifies" the check back to isinstance(), this test fails
-        and catches the regression.
+        bool is a subclass of int in Python — isinstance(True, int) is True.
+        validate_payload uses `type(x) is int` specifically so a boolean
+        doesn't sneak through as a valid window value.
         """
         payload = {"ticker": "AAPL", "fast_window": True, "slow_window": 50}
         is_valid, message = validate_payload(payload)
